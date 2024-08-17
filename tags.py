@@ -1,6 +1,7 @@
 
 from typing import List, Dict
 from dataclasses import dataclass
+from random import choice
 
 
 @dataclass
@@ -21,11 +22,11 @@ class BaseTagSystemState:
             return self.tape
         if self.iters > self.max_iters:
             raise Exception(f"Exceeded max iterations: {self.max_iters}")
-        tape = self._next()
+        tape = self.step()
         self.tape = tape
         return tape
 
-    def _next(self) -> str:
+    def step(self) -> str:
         raise NotImplementedError
 
 
@@ -41,7 +42,7 @@ class BaseTagSystem:
 class TagSystemState(BaseTagSystemState):
     system: 'TagSystem'
 
-    def _next(self) -> str:
+    def step(self) -> str:
         system = self.system
         tape = self.tape
 
@@ -106,7 +107,7 @@ class CyclicTagSystemState(BaseTagSystemState):
         super().__post_init__()
         self.production_i = 0
 
-    def _next(self) -> str:
+    def step(self) -> str:
         system = self.system
         tape = self.tape
 
@@ -176,3 +177,60 @@ class CyclicTagSystem(BaseTagSystem):
         if extra_syms:
             raise Exception(f"Tape contains symbols other than '0' and '1': {extra_syms!r}")
         return CyclicTagSystemState(system=self, tape=tape, **kwargs)
+
+
+@dataclass
+class SemiThueSystemState(BaseTagSystemState):
+    system: 'SemiThueSystem'
+
+    def step(self) -> str:
+        system = self.system
+        tape = self.tape
+
+        if system.is_random:
+            # Apply a random matching rule
+            matching_rules = [(from_word, to_word)
+                for from_word, to_word in system.rules.items()
+                if from_word in tape]
+            from_word, to_word = choice(matching_rules)
+            return tape.replace(from_word, to_word)
+        else:
+            # Apply the first matching rule
+            for in_word, out_word in system.rules.items():
+                if in_word in tape:
+                    return tape.replace(in_word, out_word)
+
+        # No rules applied
+        raise StopIteration
+
+
+@dataclass
+class SemiThueSystem(BaseTagSystem):
+    """
+
+        >>> sys = SemiThueSystem({
+        ...     '^o': 'i^',
+        ...     '^b': 'b^',
+        ...     '^d': 'd^',
+        ...     '^g': 'g^',
+        ...     '^ ': ' ^',
+        ...     '^': '',
+        ... })
+        >>> for tape in sys('^dog bog'): print(tape)
+        ^dog bog
+        d^og bog
+        di^g bog
+        dig^ bog
+        dig ^bog
+        dig b^og
+        dig bi^g
+        dig big^
+        dig big
+
+    """
+
+    rules: Dict[str, str]
+    is_random: bool = False
+
+    def __call__(self, tape: str, **kwargs) -> SemiThueSystemState:
+        return SemiThueSystemState(system=self, tape=tape, **kwargs)
