@@ -234,3 +234,61 @@ class SemiThueSystem(BaseTagSystem):
 
     def __call__(self, tape: str, **kwargs) -> SemiThueSystemState:
         return SemiThueSystemState(system=self, tape=tape, **kwargs)
+
+
+@dataclass
+class ElementaryCellularAutomatonState(BaseTagSystemState):
+    system: 'ElementaryCellularAutomatonState'
+
+    def step(self) -> str:
+        system = self.system
+        tape = self.tape
+        if not tape:
+            return tape
+
+        cells = [int(c == '1') for c in tape]
+
+        # Add first cell to the back, and last cell to the front
+        # (so new_cells doesn't have to do modular arithmetic)
+        cells.insert(0, cells[-1])
+        cells.append(cells[1])
+
+        new_cells = [
+            system.apply_rule(cells[i-1], cells[i], cells[i+1])
+            for i in range(1, len(cells) - 1)]
+        return ''.join('1' if cell else '0' for cell in new_cells)
+
+
+@dataclass
+class ElementaryCellularAutomaton(BaseTagSystem):
+    """
+
+        >>> from itertools import islice
+        >>> pad = lambda s, i: '0' * i + s + '0' * i
+
+        >>> sys = ElementaryCellularAutomaton(54)
+        >>> for tape in islice(sys(pad('1101', 10)), 10): print(tape)
+        000000000011010000000000
+        000000000100111000000000
+        000000001111000100000000
+        000000010000101110000000
+        000000111001110001000000
+        000001000110001011100000
+        000011101001011100010000
+        000100011111100010111000
+        001110100000010111000100
+        010001110000111000101110
+
+    """
+
+    rule_no: int = 0
+
+    def apply_rule(self, c0: int, c1: int, c2: int) -> int:
+        n = (c0 << 2) + (c1 << 1) + (c2 << 0)
+        return self.rule_no & (1 << n)
+
+    def __call__(self, tape: str, **kwargs) -> SemiThueSystemState:
+        extra_syms = set(tape) - {'0', '1'}
+        if extra_syms:
+            raise Exception(f"Tape contains symbols other than '0' and '1': {extra_syms!r}")
+        return ElementaryCellularAutomatonState(system=self, tape=tape, **kwargs)
