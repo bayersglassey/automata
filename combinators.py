@@ -15,7 +15,7 @@ class Value(Protocol):
     def __str__(self) -> str:
         raise NotImplementedError
 
-    def replace(self, values: Dict[str, Value]) -> Value:
+    def replace(self, **values: Value) -> Value:
         raise NotImplementedError
 
 
@@ -37,7 +37,7 @@ class Lambda(NamedTuple):
         (/xyz.(xz(yz)))
         >>> print(f(Variable('a'), Variable('b'), Variable('c')))
         (ac(bc))
-        >>> f_applied = parse('fabc').replace({'f': f})
+        >>> f_applied = parse('fabc').replace(f=f)
         >>> print(f_applied)
         ((/xyz.(xz(yz)))abc)
         >>> print(f_applied())
@@ -55,7 +55,7 @@ class Lambda(NamedTuple):
             return Application(self, args)
         elif n_args == n_vars:
             values = dict(zip(self.varnames, args))
-            return self.body.replace(values)
+            return self.body.replace(**values)
         else:
             result = self(*args[:n_vars])
             return Application(result, args[n_vars:])
@@ -63,7 +63,7 @@ class Lambda(NamedTuple):
     def __str__(self) -> str:
         return f'(/{self.varnames}.{self.body.__str__()})'
 
-    def replace(self, values: Dict[str, Value]) -> Value:
+    def replace(self, **values: Value) -> Value:
         for var in values:
             if var in self.varnames:
                 values = {var: value for var, value in values.items()
@@ -71,7 +71,7 @@ class Lambda(NamedTuple):
                 break
         if not values:
             return self
-        return Lambda(self.varnames, self.body.replace(values))
+        return Lambda(self.varnames, self.body.replace(**values))
 
 
 class Variable(NamedTuple):
@@ -83,7 +83,7 @@ class Variable(NamedTuple):
     def __str__(self) -> str:
         return self.varname
 
-    def replace(self, values: Dict[str, Value]) -> Value:
+    def replace(self, **values: Value) -> Value:
         return values.get(self.varname, self)
 
 
@@ -97,10 +97,10 @@ class Application(NamedTuple):
     def __str__(self) -> str:
         return f'({self.func}{"".join(str(a) for a in self.args)})'
 
-    def replace(self, values: Dict[str, Value]) -> Value:
+    def replace(self, **values: Value) -> Value:
         return Application(
-            self.func.replace(values),
-            tuple(a.replace(values) for a in self.args))
+            self.func.replace(**values),
+            tuple(a.replace(**values) for a in self.args))
 
 
 class Combinator(NamedTuple):
@@ -138,7 +138,7 @@ class Combinator(NamedTuple):
     def __str__(self) -> str:
         return self.name
 
-    def replace(self, values: Dict[str, Value]) -> Value:
+    def replace(self, **values: Value) -> Value:
         return self
 
 

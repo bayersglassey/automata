@@ -38,11 +38,11 @@ Fully reduced application:
 (ac(bc))
 
 You can use "replace" to bind variables:
->>> print(parse('fabc').replace({'f': f}))
+>>> print(parse('fabc').replace(f=f))
 ((/xyz.(xz(yz)))abc)
 
 Call a function application with no arguments to simplify it:
->>> print(parse('fabc').replace({'f': f})())
+>>> print(parse('fabc').replace(f=f)())
 (ac(bc))
 ```
 
