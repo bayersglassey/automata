@@ -22,7 +22,7 @@ class Value(Protocol):
 class Lambda(NamedTuple):
     """
 
-        >>> f = Lambda('xy', Variable('x'))
+        >>> f = parse('/xy.x')
         >>> print(f)
         (/xy.x)
         >>> print(f(Variable('a')))
@@ -32,17 +32,15 @@ class Lambda(NamedTuple):
         >>> print(f(Variable('a'), Variable('b'), Variable('c')))
         (ac)
 
-        >>> f = Lambda('xyz',
-        ...     Application(Variable('x'), (
-        ...         Variable('z'),
-        ...         Application(Variable('y'), (
-        ...             Variable('z'),
-        ...         )),
-        ...     )),
-        ... )
+        >>> f = parse('/xyz.xz(yz)')
         >>> print(f)
         (/xyz.(xz(yz)))
         >>> print(f(Variable('a'), Variable('b'), Variable('c')))
+        (ac(bc))
+        >>> f_applied = parse('fabc').replace({'f': f})
+        >>> print(f_applied)
+        ((/xyz.(xz(yz)))abc)
+        >>> print(f_applied())
         (ac(bc))
 
     """
