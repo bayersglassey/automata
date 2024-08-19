@@ -215,6 +215,9 @@ def parse(
         >>> print(parse('/x.y'))
         (/x.y)
 
+        >>> print(parse('(/x.y)'))
+        (/x.y)
+
         >>> print(parse('/x.yz'))
         (/x.(yz))
 
@@ -308,5 +311,5 @@ def parse(
             raise ParseError(f"Syntax error: invalid character {c!r}")
     drain_lambdas_from_stack()
     if stack:
-        raise ParseError(f"Missing {len(stack)} ')' characters")
+        raise ParseError(f"Missing ')' (stack is at depth {len(stack)})")
     return from_terms()
