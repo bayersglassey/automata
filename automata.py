@@ -20,7 +20,7 @@ class BaseTagSystemState:
         if self.iters == 0:
             # Always yield the initial tape value
             return self.tape
-        if self.iters > self.max_iters:
+        if self.max_iters and self.iters > self.max_iters:
             raise Exception(f"Exceeded max iterations: {self.max_iters}")
         tape = self.step()
         self.tape = tape
