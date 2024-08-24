@@ -10,8 +10,10 @@ from dataclasses import dataclass
 NAME_REGEX = re.compile(r'[a-zA-Z0-9_]')
 is_name = NAME_REGEX.match
 
+TWO_BYTE_INSTRUCTIONS = ('=', '.', '=.', '@', ':', "'")
+
 Instruction = Union[str, int]
-Value = Union[Dict[str, 'Value'], 'Func']
+Value = Union[str, Dict[str, 'Value'], 'Func']
 Vars = Dict[str, Value]
 Stack = List[Value]
 
@@ -80,7 +82,7 @@ class Code:
                     c = next(it, '\n')
             elif c in '*!^/?' or is_name(c):
                 add_instruction(c)
-            elif c in '.@':
+            elif c in ".@'":
                 c0 = c
                 c = next(it, '')
                 if not is_name(c):
@@ -157,9 +159,9 @@ class Code:
         vars = set()
         it = iter(self.instructions)
         for c in it:
-            if c in ('=', '.', '=.', '@', ':'):
+            if c in TWO_BYTE_INSTRUCTIONS:
                 next(it)
-            if isinstance(c, str) and is_name(c):
+            elif isinstance(c, str) and is_name(c):
                 vars.add(c)
         for child in self.children:
             vars.update(child.free_vars)
@@ -196,16 +198,16 @@ class Code:
                 elif c == '@':
                     c = next(it)
                     code_i = self.labels[c] - 1
-                elif c == '?':
+                elif c == "'":
+                    c = next(it)
+                    stack.append(c)
+                elif c in '?/':
                     x = stack.pop()
                     y = stack.pop()
-                    if x != y:
-                        code_i += 1
-                elif c == '/':
-                    x = stack.pop()
-                    y = stack.pop()
-                    if x == y:
-                        code_i += 1
+                    if (x == y) ^ (c == '?'):
+                        c = next(it)
+                        if c in TWO_BYTE_INSTRUCTIONS:
+                            c = next(it)
                 elif c == '.':
                     c = next(it)
                     o = stack.pop()
@@ -237,6 +239,8 @@ class Code:
                 else:
                     error(f"Unknown instruction: {c!r}")
         except Exception as ex:
+            if isinstance(ex, RunError):
+                raise
             error("Whoops.")
         if debug:
             debug_print("RETURN")
