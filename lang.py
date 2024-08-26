@@ -16,6 +16,37 @@ Instruction = Union[str, int]
 Value = Union[str, Dict[str, 'Value'], 'Func']
 Vars = Dict[str, Value]
 Stack = List[Value]
+Dumped = Dict[int, int]
+
+
+def dumps(value: Value, depth: int = 0, dumped: Dumped = None) -> str:
+    if isinstance(value, str):
+        return f"'{value}"
+
+    if dumped is None:
+        dumped = {}
+    if id(value) in dumped:
+        return f'${dumped[id(value)]};'
+    dump_index = len(dumped)
+    dumped[id(value)] = dump_index
+
+    if isinstance(value, dict):
+        s = '[=o'
+        for k, v in value.items():
+            s += f'{dumps(v, depth + 1, dumped)}o=.{k}'
+        s += ']*!'
+    elif isinstance(value, Func):
+        s = '['
+        for k, v in value.vars.items():
+            s += f'{dumps(v, depth + 1, dumped)}={k}'
+        for v in value.stack:
+            s += dumps(v, depth + 1, dumped)
+        s += str(value.code)
+        s += ']'
+    else:
+        raise TypeError(type(value))
+    s += f'=${dump_index};'
+    return s
 
 
 class BadSyntax(Exception):
@@ -184,6 +215,10 @@ class Code:
             while code_i < len(instructions):
                 yield instructions[code_i]
                 code_i += 1
+        def pop():
+            if not stack:
+                error("Stack empty")
+            return stack.pop()
         it = iter_instructions()
         def debug_print(msg):
             print(f"{msg} (code_i={code_i} stacklen={len(stack)} vars={''.join(vars)!r})")
@@ -194,7 +229,7 @@ class Code:
                 if c == '*':
                     stack.append({})
                 elif c == '^':
-                    stack.pop()
+                    pop()
                 elif c == '@':
                     c = next(it)
                     code_i = self.labels[c] - 1
@@ -202,23 +237,23 @@ class Code:
                     c = next(it)
                     stack.append(c)
                 elif c in '?/':
-                    x = stack.pop()
-                    y = stack.pop()
+                    x = pop()
+                    y = pop()
                     if (x == y) ^ (c == '?'):
                         c = next(it)
                         if c in TWO_BYTE_INSTRUCTIONS:
                             c = next(it)
                 elif c == '.':
                     c = next(it)
-                    o = stack.pop()
+                    o = pop()
                     stack.append(o[c])
                 elif c == '=':
                     c = next(it)
-                    vars[c] = stack.pop()
+                    vars[c] = pop()
                 elif c == '=.':
                     c = next(it)
-                    o = stack.pop()
-                    x = stack.pop()
+                    o = pop()
+                    x = pop()
                     o[c] = x
                 elif c == '[]':
                     c = next(it)
@@ -231,8 +266,8 @@ class Code:
                     )
                     stack.append(f)
                 elif c == '!':
-                    x = stack.pop()
-                    f = stack.pop()
+                    x = pop()
+                    f = pop()
                     stack.append(f(x, debug))
                 elif isinstance(c, str) and is_name(c):
                     stack.append(vars[c])
@@ -303,12 +338,19 @@ def main():
                 debug = not debug
                 print(f"Debug mode: {'ON' if debug else 'OFF'}")
             elif text in ('%info', '%i'):
-                print(f"Vars:")
+                dumped = {}
+                vars_lines = []
+                stack_lines = []
                 for k, v in vars.items():
-                    print(f" {k}: {v!r}")
-                print(f"Stack:")
+                    vars_lines.append(f" {k}: {dumps(v, 0, dumped)}")
                 for i, v in enumerate(reversed(stack)):
-                    print(f" {i}: {v!r}")
+                    stack_lines.append(f" {i}: {dumps(v, 0, dumped)}")
+                print(f"Vars:")
+                for line in vars_lines:
+                    print(line)
+                print(f"Stack:")
+                for line in stack_lines:
+                    print(line)
             else:
                 print(f"Unknown special command: {text}")
                 print_special_commands()
