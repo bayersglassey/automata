@@ -313,3 +313,35 @@ def parse(
     if stack:
         raise ParseError(f"Missing ')' (stack is at depth {len(stack)})")
     return from_terms()
+
+
+def main():
+    prev_program = ''
+    value = None
+    while True:
+        try:
+            program = prev_program + input(': ' if prev_program else '$ ').strip()
+            prev_program = ''
+            if not program:
+                continue
+            n_open = sum(c == '(' for c in program)
+            n_close = sum(c == ')' for c in program)
+            if n_close > n_open:
+                print("Syntax error: too many ']'!")
+                continue
+            elif n_open > n_close:
+                prev_program = program
+                continue
+            if value is None:
+                value = parse(program)
+            else:
+                value = value(parse(program))
+            print(value)
+        except KeyboardInterrupt:
+            return
+        except Exception as ex:
+            print(f"ERROR: {ex}")
+
+
+if __name__ == '__main__':
+    main()
